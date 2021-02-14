@@ -25,6 +25,7 @@ pub struct Endpoint {
     pub(crate) uri: Uri,
     pub(crate) user_agent: Option<HeaderValue>,
     pub(crate) timeout: Option<Duration>,
+    pub(crate) connect_timeout: Option<Duration>,
     pub(crate) concurrency_limit: Option<usize>,
     pub(crate) rate_limit: Option<(u64, Duration)>,
     #[cfg(feature = "tls")]
@@ -113,6 +114,29 @@ impl Endpoint {
     pub fn timeout(self, dur: Duration) -> Self {
         Endpoint {
             timeout: Some(dur),
+            ..self
+        }
+    }
+    /// Set a connect timeout.
+    ///
+    /// The connect timeout to be enforced by `Endpoint::connect` and
+    /// `Endpoint::connect_lazy`.
+    ///
+    /// If the connection cannot be established within the connect timeout
+    /// then an error will be returned.
+    ///
+    /// Default (`None`) is not to set any connect timeout and inherit any
+    /// platform specific connect timeout behaviour.
+    ///
+    /// ```
+    /// # use tonic::transport::Endpoint;
+    /// # use std::time::Duration;
+    /// # let mut builder = Endpoint::from_static("https://example.com");
+    /// builder.connect_timeout(Duration::from_secs(5));
+    /// ```
+    pub fn connect_timeout(self, dur: Duration) -> Self {
+        Endpoint {
+            connect_timeout: Some(dur),
             ..self
         }
     }
@@ -236,6 +260,7 @@ impl Endpoint {
         http.enforce_http(false);
         http.set_nodelay(self.tcp_nodelay);
         http.set_keepalive(self.tcp_keepalive);
+        http.set_connect_timeout(self.connect_timeout);
 
         #[cfg(feature = "tls")]
         let connector = service::connector(http, self.tls.clone());
@@ -255,6 +280,7 @@ impl Endpoint {
         http.enforce_http(false);
         http.set_nodelay(self.tcp_nodelay);
         http.set_keepalive(self.tcp_keepalive);
+        http.set_connect_timeout(self.connect_timeout);
 
         #[cfg(feature = "tls")]
         let connector = service::connector(http, self.tls.clone());
@@ -308,6 +334,7 @@ impl From<Uri> for Endpoint {
             concurrency_limit: None,
             rate_limit: None,
             timeout: None,
+            connect_timeout: None,
             #[cfg(feature = "tls")]
             tls: None,
             buffer_size: None,
